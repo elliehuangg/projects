@@ -1,0 +1,74 @@
+```{r}
+install.packages("dplyr")
+install.packages("janitor")
+
+library(tidyverse)
+library(tidyr)
+library(dplyr)
+library(janitor)
+library(ggplot2)
+```
+# data cleaning
+```{r}
+match_df <- read.csv("match_df.csv")
+
+match_df <- match_df %>% 
+  clean_names() %>% 
+  select(-x, -kill_participation, -takedowns, -killing_sprees, -largest_killing_spree, -largest_multi_kill, -double_kills, -triple_kills, -quadra_kills, -penta_kills)
+
+colnames(match_df)
+
+match_df2 <- read.csv("match_df2.csv")
+
+match_df2 <- match_df2 %>% 
+  clean_names() %>% 
+  select(-x, -kill_participation, -takedowns, -killing_sprees, -largest_killing_spree, -largest_multi_kill, -double_kills, -triple_kills, -quadra_kills, -penta_kills)
+
+colnames(match_df2)
+
+player_stats <- rbind(match_df, match_df2)
+write.csv(player_stats, "player_stats.csv")
+```
+
+# summary statistics for numeric variables
+```{r}
+summary_table <- match_df %>%
+  select(where(is.numeric)) %>%
+  summarise(across(everything(), list(
+    Mean = ~mean(., na.rm = TRUE), 
+    SD = ~sd(., na.rm = TRUE), 
+    Median = ~median(., na.rm = TRUE), 
+    Min = ~min(., na.rm = TRUE), 
+    Max = ~max(., na.rm = TRUE)
+  ), .names = "{.col}_{.fn}"))
+
+# Transpose the summary table to a more readable format
+summary_table <- summary_table %>%
+  pivot_longer(cols = everything(),
+               names_to = c("Variable", "Statistic"),
+               names_pattern = "(.*)_(.*)") %>%
+  pivot_wider(names_from = Statistic, values_from = value) %>%
+  arrange(Variable)
+
+print(summary_table)
+```
+
+# visualize distribution for kills, deaths, and assists
+```{r}
+ggplot(match_df, aes(x = total_damage_dealt)) + 
+  geom_histogram(bins = 30, color = "white", fill = "steelblue") + 
+  ggtitle("Distribution of Total Damage Dealt")
+
+# Histogram for KDA components
+ggplot(match_df, aes(x = kills)) + 
+  geom_histogram(bins = 30, color = "white", fill = "steelblue") + 
+  ggtitle("Distribution of Kills")
+
+ggplot(match_df, aes(x = deaths)) + 
+  geom_histogram(bins = 30, color = "white", fill = "steelblue") + 
+  ggtitle("Distribution of Deaths")
+
+ggplot(match_df, aes(x = assists)) + 
+  geom_histogram(bins = 30, color = "white", fill = "steelblue") + 
+  ggtitle("Distribution of Assists")
+```

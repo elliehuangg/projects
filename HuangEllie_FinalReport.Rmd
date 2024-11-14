@@ -1,0 +1,45 @@
+---
+title: "Final Project - PSTAT 131"
+author: "Ellie Huang"
+date: "12-13-2024"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE,
+                      warning = FALSE)
+library(httr)
+library(jsonlite)
+library(dplyr)
+library(janitor)
+library(tidyverse)
+library(tidymodels)
+library(ggplot2)
+library(naniar)
+```
+
+# Introduction
+
+In the realm of online multiplayer games, League of Legends stands out as one of the most popular and competitive titles, engaging millions of players worldwide in fast-paced, team-based battles. Each match in League of Legends pits two teams of five players against each other, with the primary objective being to destroy the enemy's Nexus, a critical structure located at the heart of their base. Players control champions, unique characters with specific abilities, roles, and attributes that contribute to the team's strategy and performance. Throughout the game, players accumulate experience points (XP), gold, and items, all of which enhance their champion’s abilities and influence their impact on the match.
+
+A central performance metric in League of Legends is the Kill/Death/Assist (KDA) ratio, which quantifies a player's effectiveness by balancing their offensive contributions (kills and assists) against their defensive responsibility (avoiding deaths). High KDA ratios are generally associated with skilled gameplay and strategic awareness, making KDA a valuable indicator for analyzing performance. The primary goal of this project is to build a model that can predict a player’s KDA based on various in-game factors, such as champion type, role, and match duration. By examining these variables, my aim is to uncover patterns that influence KDA and contribute to a deeper understanding of gameplay dynamics.
+
+# Source of Data
+
+The data for this project was sourced from the Riot Games Developer API (Riot Games, Inc., 2024), which provides comprehensive in-game statistics for League of Legends. Key metrics such as match history, champion stats, and player rankings were collected to support KDA prediction analysis. Data access required an API key, with relevant match data filtered for this project’s focus.
+
+For API details, visit the Riot Games Developer Portal: https://developer.riotgames.com/.
+
+Citation: Riot Games, Inc. (2024). Riot Games Developer Portal. https://developer.riotgames.com/.
+
+A codebook of variables and their descriptions are attached as a separate .doc file.
+
+# Exploratory Data Analysis (EDA)
+
+```{r}
+naniar::gg_miss_var(player_stats)
+```

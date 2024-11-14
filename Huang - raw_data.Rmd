@@ -1,0 +1,875 @@
+```{r}
+library(httr)
+library(jsonlite)
+library(dplyr)
+library(janitor)
+```
+
+```{r}
+# matchv5 
+
+# api key
+my_api_key = "RGAPI-4db52320-8b0e-4a7b-9aba-af72653e1f28"
+
+get_puuid <- function(region = "americas", game_name, tag_line, api_key) {
+  # Construct the URL with your game name, tag line, and API key
+  account_url <- paste0(
+    "https://", region, ".api.riotgames.com/riot/account/v1/accounts/by-riot-id/",
+    URLencode(game_name), "/", URLencode(tag_line), "?api_key=", api_key
+  )
+  
+  # Send the GET request
+  response <- GET(account_url)
+  
+  # Check for successful response
+  if (status_code(response) == 200) {
+    account_info <- content(response, as = "parsed", type = "application/json")
+    puuid <- account_info$puuid
+    return(puuid)
+  } else {
+    # Handle errors
+    stop("Error: ", status_code(response), " - ", content(response, as = "text"))
+  }
+}
+
+# Function to get match history
+get_match_history <- function(region = "americas", puuid, count = 20, api_key) {
+  # Construct the URL with your PUUID and API key
+  matchlist_url <- paste0(
+    "https://", region, ".api.riotgames.com/lol/match/v5/matches/by-puuid/", 
+    puuid, "/ids?start=0&count=", count, "&api_key=", api_key
+  )
+  
+  # Send the GET request
+  response <- GET(matchlist_url)
+  
+  # Check for successful response
+  if (status_code(response) == 200) {
+    match_ids <- content(response, as = "parsed", type = "application/json")
+    return(match_ids)
+  } else {
+    # Handle errors
+    stop("Error: ", status_code(response), " - ", content(response, as = "text"))
+  }
+}
+```
+
+```{r}
+get_match_details <- function(region = "americas", match_id, puuid, api_key) {
+  match_url <- paste0("https://", region, ".api.riotgames.com/lol/match/v5/matches/", match_id, "?api_key=", api_key)
+  response <- GET(match_url)
+  
+  # Check if the response is successful
+  if (status_code(response) == 200) {
+    content <- content(response, as = "parsed", type = "application/json")
+    
+    # Extract participant data and filter for the specific player using `puuid`
+    if (!is.null(content$info$participants)) {
+      match_data <- content$info$participants
+      
+      # Filter the participant data to include only the given player's stats
+      player_data <- match_data[sapply(match_data, function(x) x$puuid == puuid)]
+      
+      # Select only the specified columns and replace NULLs with NA
+      if (length(player_data) > 0) {
+        player_data_df <- as_tibble(list(
+          kills = if (!is.null(player_data[[1]]$kills)) player_data[[1]]$kills else NA,
+          deaths = if (!is.null(player_data[[1]]$deaths)) player_data[[1]]$deaths else NA,
+          assists = if (!is.null(player_data[[1]]$assists)) player_data[[1]]$assists else NA,
+          killingSprees = if (!is.null(player_data[[1]]$killingSprees)) player_data[[1]]$killingSprees else NA,
+          largestKillingSpree = if (!is.null(player_data[[1]]$largestKillingSpree)) player_data[[1]]$largestKillingSpree else NA,
+          largestMultiKill = if (!is.null(player_data[[1]]$largestMultiKill)) player_data[[1]]$largestMultiKill else NA,
+          doubleKills = if (!is.null(player_data[[1]]$doubleKills)) player_data[[1]]$doubleKills else NA,
+          tripleKills = if (!is.null(player_data[[1]]$tripleKills)) player_data[[1]]$tripleKills else NA,
+          quadraKills = if (!is.null(player_data[[1]]$quadraKills)) player_data[[1]]$quadraKills else NA,
+          pentaKills = if (!is.null(player_data[[1]]$pentaKills)) player_data[[1]]$pentaKills else NA,
+          totalDamageDealt = if (!is.null(player_data[[1]]$totalDamageDealt)) player_data[[1]]$totalDamageDealt else NA,
+          totalDamageDealtToChampions = if (!is.null(player_data[[1]]$totalDamageDealtToChampions)) player_data[[1]]$totalDamageDealtToChampions else NA,
+          magicDamageDealt = if (!is.null(player_data[[1]]$magicDamageDealt)) player_data[[1]]$magicDamageDealt else NA,
+          physicalDamageDealt = if (!is.null(player_data[[1]]$physicalDamageDealt)) player_data[[1]]$physicalDamageDealt else NA,
+          trueDamageDealt = if (!is.null(player_data[[1]]$trueDamageDealt)) player_data[[1]]$trueDamageDealt else NA,
+          damageDealtToObjectives = if (!is.null(player_data[[1]]$damageDealtToObjectives)) player_data[[1]]$damageDealtToObjectives else NA,
+          damageDealtToTurrets = if (!is.null(player_data[[1]]$damageDealtToTurrets)) player_data[[1]]$damageDealtToTurrets else NA,
+          damageSelfMitigated = if (!is.null(player_data[[1]]$damageSelfMitigated)) player_data[[1]]$damageSelfMitigated else NA,
+          totalDamageTaken = if (!is.null(player_data[[1]]$totalDamageTaken)) player_data[[1]]$totalDamageTaken else NA,
+          goldEarned = if (!is.null(player_data[[1]]$goldEarned)) player_data[[1]]$goldEarned else NA,
+          goldSpent = if (!is.null(player_data[[1]]$goldSpent)) player_data[[1]]$goldSpent else NA,
+          totalMinionsKilled = if (!is.null(player_data[[1]]$totalMinionsKilled)) player_data[[1]]$totalMinionsKilled else NA,
+          neutralMinionsKilled = if (!is.null(player_data[[1]]$neutralMinionsKilled)) player_data[[1]]$neutralMinionsKilled else NA,
+          lane = if (!is.null(player_data[[1]]$lane)) player_data[[1]]$lane else NA,
+          teamPosition = if (!is.null(player_data[[1]]$teamPosition)) player_data[[1]]$teamPosition else NA,
+          timePlayed = if (!is.null(player_data[[1]]$timePlayed)) player_data[[1]]$timePlayed else NA,
+          visionScore = if (!is.null(player_data[[1]]$visionScore)) player_data[[1]]$visionScore else NA,
+          wardsPlaced = if (!is.null(player_data[[1]]$wardsPlaced)) player_data[[1]]$wardsPlaced else NA,
+          wardsKilled = if (!is.null(player_data[[1]]$wardsKilled)) player_data[[1]]$wardsKilled else NA,
+          longestTimeSpentLiving = if (!is.null(player_data[[1]]$longestTimeSpentLiving)) player_data[[1]]$longestTimeSpentLiving else NA,
+          totalHeal = if (!is.null(player_data[[1]]$totalHeal)) player_data[[1]]$totalHeal else NA,
+          totalHealsOnTeammates = if (!is.null(player_data[[1]]$totalHealsOnTeammates)) player_data[[1]]$totalHealsOnTeammates else NA,
+          totalDamageShieldedOnTeammates = if (!is.null(player_data[[1]]$totalDamageShieldedOnTeammates)) player_data[[1]]$totalDamageShieldedOnTeammates else NA,
+          timeCCingOthers = if (!is.null(player_data[[1]]$timeCCingOthers)) player_data[[1]]$timeCCingOthers else NA,
+          firstBloodKill = if (!is.null(player_data[[1]]$firstBloodKill)) player_data[[1]]$firstBloodKill else NA,
+          firstBloodAssist = if (!is.null(player_data[[1]]$firstBloodAssist)) player_data[[1]]$firstBloodAssist else NA,
+          firstTowerKill = if (!is.null(player_data[[1]]$firstTowerKill)) player_data[[1]]$firstTowerKill else NA,
+          firstTowerAssist = if (!is.null(player_data[[1]]$firstTowerAssist)) player_data[[1]]$firstTowerAssist else NA,
+          killParticipation = if (!is.null(player_data[[1]]$killParticipation)) player_data[[1]]$killParticipation else NA,
+          takedowns = if (!is.null(player_data[[1]]$takedowns)) player_data[[1]]$takedowns else NA
+        ))
+        
+        return(player_data_df)
+      } else {
+        message("No match data found for specified player in match_id: ", match_id)
+        return(tibble())  # Return an empty tibble if the player is not found
+      }
+    } else {
+      message("No participant data found for match_id: ", match_id)
+      return(tibble())  # Return an empty tibble if no participant data
+    }
+  } else {
+    stop("Error: ", status_code(response), " - ", content(response, as = "text"))
+  }
+}
+```
+
+```{r}
+flatten_and_repair_names <- function(match_data) {
+  # Assign unique suffixes based on participant index
+  participants <- match_data$participants
+  participant_data <- lapply(seq_along(participants), function(i) {
+    as_tibble(participants[[i]], .name_repair = function(names) {
+      paste0(names, "_p", i)  # Add unique suffix (e.g., "_p1", "_p2", etc.)
+    })
+  })
+  bind_cols(participant_data)  # Combine participants horizontally for each match
+}
+```
+
+# ```{r}
+# # dataframe of summoner names and tag lines
+# # top players in NA region for ranked solo/duo: https://www.op.gg/leaderboards/tier?hl=en_US
+# player_names <- NA_leaderboard_5
+# ```
+#
+# ```{r}
+# unique_match_ids <- vector("list", length = nrow(player_names))
+# ```
+#
+# ```{r}
+#
+# for (i in 1:20) {
+#   summoner_name <- player_names$name[i]
+#   tag_line <- player_names$tag[i]
+#
+#   # Get PUUID for the player
+#   puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+#
+#   # Get the last 20 match IDs
+#   match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+#
+#   # Randomly select one match ID and store it in the list
+#   unique_match_ids[[i]] <- sample(match_ids, 1)
+# }
+# ```
+#
+# ```{r}
+# for (i in 21:40) {
+#   summoner_name <- player_names$name[i]
+#   tag_line <- player_names$tag[i]
+#
+#   # Get PUUID for the player
+#   puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+#
+#   # Get the last 20 match IDs
+#   match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+#
+#   # Randomly select one match ID and store it in the list
+#   unique_match_ids[[i]] <- sample(match_ids, 1)
+# }
+# ```
+#
+# ```{r}
+# for (i in 41:60) {
+#   summoner_name <- player_names$name[i]
+#   tag_line <- player_names$tag[i]
+#
+#   # Get PUUID for the player
+#   puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+#
+#   # Get the last 20 match IDs
+#   match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+#
+#   # Randomly select one match ID and store it in the list
+#   unique_match_ids[[i]] <- sample(match_ids, 1)
+# }
+# ```
+#
+# ```{r}
+# for (i in 61:80) {
+#   summoner_name <- player_names$name[i]
+#   tag_line <- player_names$tag[i]
+#
+#   # Get PUUID for the player
+#   puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+#
+#   # Get the last 20 match IDs
+#   match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+#
+#   # Randomly select one match ID and store it in the list
+#   unique_match_ids[[i]] <- sample(match_ids, 1)
+# }
+# ```
+#
+# ```{r}
+# for (i in 81:100) {
+#   summoner_name <- player_names$name[i]
+#   tag_line <- player_names$tag[i]
+#
+#   # Get PUUID for the player
+#   puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+#
+#   # Get the last 20 match IDs
+#   match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+#
+#   # Randomly select one match ID and store it in the list
+#   unique_match_ids[[i]] <- sample(match_ids, 1)
+# }
+# ```
+#
+# ```{r}
+# for (i in 101:120) {
+#   summoner_name <- player_names$name[i]
+#   tag_line <- player_names$tag[i]
+#
+#   # Get PUUID for the player
+#   puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+#
+#   # Get the last 20 match IDs
+#   match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+#
+#   # Randomly select one match ID and store it in the list
+#   unique_match_ids[[i]] <- sample(match_ids, 1)
+# }
+# ```
+#
+# ```{r}
+# player_names$tag[134] <- "dice"
+#
+# for (i in 121:140) {
+#   summoner_name <- player_names$name[i]
+#   tag_line <- player_names$tag[i]
+#
+#   # Get PUUID for the player
+#   puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+#
+#   # Get the last 20 match IDs
+#   match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+#
+#   # Randomly select one match ID and store it in the list
+#   unique_match_ids[[i]] <- sample(match_ids, 1)
+# }
+# ```
+#
+# ```{r}
+# for (i in 141:160) {
+#   summoner_name <- player_names$name[i]
+#   tag_line <- player_names$tag[i]
+#
+#   # Get PUUID for the player
+#   puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+#
+#   # Get the last 20 match IDs
+#   match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+#
+#   # Randomly select one match ID and store it in the list
+#   unique_match_ids[[i]] <- sample(match_ids, 1)
+# }
+# ```
+#
+# ```{r}
+# for (i in 161:180) {
+#   summoner_name <- player_names$name[i]
+#   tag_line <- player_names$tag[i]
+#
+#   # Get PUUID for the player
+#   puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+#
+#   # Get the last 20 match IDs
+#   match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+#
+#   # Randomly select one match ID and store it in the list
+#   unique_match_ids[[i]] <- sample(match_ids, 1)
+# }
+# ```
+#
+# ```{r}
+# player_names$name[188] <- "big dacko"
+#
+# for (i in 181:200) {
+#   summoner_name <- player_names$name[i]
+#   tag_line <- player_names$tag[i]
+#
+#   # Get PUUID for the player
+#   puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+#
+#   # Get the last 20 match IDs
+#   match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+#
+#   # Randomly select one match ID and store it in the list
+#   unique_match_ids[[i]] <- sample(match_ids, 1)
+# }
+# ```
+#
+# ```{r}
+# for (i in 201:205) {
+#   summoner_name <- player_names$name[i]
+#   tag_line <- player_names$tag[i]
+#
+#   # Get PUUID for the player
+#   puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+#
+#   # Get the last 20 match IDs
+#   match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+#
+#   # Randomly select one match ID and store it in the list
+#   unique_match_ids[[i]] <- sample(match_ids, 1)
+# }
+#
+# unique_match_ids <- unlist(unique_match_ids)
+# ```
+#
+#
+#
+# ```{r}
+# # Step 2: Second loop to retrieve match details for each unique match ID
+# player_matches <- list()
+#
+# for (j in 1:40) {
+#   summoner_name <- player_names$name[j]
+#   tag_line <- player_names$tag[j]
+#
+#   # Get PUUID for the player
+#   puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+#
+#   match_id <- unique_match_ids[j]
+#
+#   # Get match data for the selected match ID
+#   match_data <- get_match_details("americas", match_id, puuid, my_api_key)
+#
+#   # Store the match data
+#   player_matches[[j]] <- match_data
+# }
+# ```
+#
+# ```{r}
+# for (j in 41:80) {
+#   summoner_name <- player_names$name[j]
+#   tag_line <- player_names$tag[j]
+#
+#   # Get PUUID for the player
+#   puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+#
+#   match_id <- unique_match_ids[j]
+#
+#   # Get match data for the selected match ID
+#   match_data <- get_match_details("americas", match_id, puuid, my_api_key)
+#
+#   # Store the match data
+#   player_matches[[j]] <- match_data
+# }
+# ```
+#
+# ```{r}
+# for (j in 81:120) {
+#   summoner_name <- player_names$name[j]
+#   tag_line <- player_names$tag[j]
+#
+#   # Get PUUID for the player
+#   puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+#
+#   match_id <- unique_match_ids[j]
+#
+#   # Get match data for the selected match ID
+#   match_data <- get_match_details("americas", match_id, puuid, my_api_key)
+#
+#   # Store the match data
+#   player_matches[[j]] <- match_data
+# }
+# ```
+#
+# ```{r}
+# for (j in 121:160) {
+#   summoner_name <- player_names$name[j]
+#   tag_line <- player_names$tag[j]
+#
+#   # Get PUUID for the player
+#   puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+#
+#   match_id <- unique_match_ids[j]
+#
+#   # Get match data for the selected match ID
+#   match_data <- get_match_details("americas", match_id, puuid, my_api_key)
+#
+#   # Store the match data
+#   player_matches[[j]] <- match_data
+# }
+# ```
+#
+# ```{r}
+# for (j in 161:200) {
+#   summoner_name <- player_names$name[j]
+#   tag_line <- player_names$tag[j]
+#
+#   # Get PUUID for the player
+#   puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+#
+#   match_id <- unique_match_ids[j]
+#
+#   # Get match data for the selected match ID
+#   match_data <- get_match_details("americas", match_id, puuid, my_api_key)
+#
+#   # Store the match data
+#   player_matches[[j]] <- match_data
+# }
+# ```
+#
+# ```{r}
+# for (j in 201:205) {
+#   summoner_name <- player_names$name[j]
+#   tag_line <- player_names$tag[j]
+#
+#   # Get PUUID for the player
+#   puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+#
+#   match_id <- unique_match_ids[j]
+#
+#   # Get match data for the selected match ID
+#   match_data <- get_match_details("americas", match_id, puuid, my_api_key)
+#
+#   # Store the match data
+#   player_matches[[j]] <- match_data
+# }
+# ```
+#
+# ```{r}
+# # Combine all matches into a single data frame
+# match_df <- bind_rows(player_matches)
+# write.csv(match_df, "match_df.csv")
+# ```
+
+# add more player data
+```{r}
+player_names <- NA_leaderboard_2
+```
+
+```{r}
+unique_match_ids <- vector("list", length = nrow(player_names))
+```
+
+```{r}
+player_names$name[5] <- "angełs"
+player_names$name[19] <- "ghelb"
+
+for (i in 1:20) {
+  summoner_name <- player_names$name[i]
+  tag_line <- player_names$tag[i]
+  
+  # Get PUUID for the player
+  puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+  
+  # Get the last 20 match IDs
+  match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+  
+  # Randomly select one match ID and store it in the list
+  unique_match_ids[[i]] <- sample(match_ids, 1)
+}
+```
+
+```{r}
+for (i in 21:40) {
+  summoner_name <- player_names$name[i]
+  tag_line <- player_names$tag[i]
+  
+  # Get PUUID for the player
+  puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+  
+  # Get the last 20 match IDs
+  match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+  
+  # Randomly select one match ID and store it in the list
+  unique_match_ids[[i]] <- sample(match_ids, 1)
+}
+```
+
+```{r}
+player_names$tag[48] <- "ガレンOP"
+
+for (i in 41:60) {
+  summoner_name <- player_names$name[i]
+  tag_line <- player_names$tag[i]
+  
+  # Get PUUID for the player
+  puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+  
+  # Get the last 20 match IDs
+  match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+  
+  # Randomly select one match ID and store it in the list
+  unique_match_ids[[i]] <- sample(match_ids, 1)
+}
+```
+
+```{r}
+player_names$name[75] <- "Wzec"
+
+for (i in 61:80) {
+  summoner_name <- player_names$name[i]
+  tag_line <- player_names$tag[i]
+  
+  # Get PUUID for the player
+  puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+  
+  # Get the last 20 match IDs
+  match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+  
+  # Randomly select one match ID and store it in the list
+  unique_match_ids[[i]] <- sample(match_ids, 1)
+}
+```
+
+```{r}
+for (i in 81:100) {
+  summoner_name <- player_names$name[i]
+  tag_line <- player_names$tag[i]
+  
+  # Get PUUID for the player
+  puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+  
+  # Get the last 20 match IDs
+  match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+  
+  # Randomly select one match ID and store it in the list
+  unique_match_ids[[i]] <- sample(match_ids, 1)
+}
+```
+
+```{r}
+player_names$tag[108] <- "2299"
+
+for (i in 101:120) {
+  summoner_name <- player_names$name[i]
+  tag_line <- player_names$tag[i]
+  
+  # Get PUUID for the player
+  puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+  
+  # Get the last 20 match IDs
+  match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+  
+  # Randomly select one match ID and store it in the list
+  unique_match_ids[[i]] <- sample(match_ids, 1)
+}
+```
+
+```{r}
+for (i in 121:140) {
+  summoner_name <- player_names$name[i]
+  tag_line <- player_names$tag[i]
+  
+  # Get PUUID for the player
+  puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+  
+  # Get the last 20 match IDs
+  match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+  
+  # Randomly select one match ID and store it in the list
+  unique_match_ids[[i]] <- sample(match_ids, 1)
+}
+```
+
+```{r}
+for (i in 141:160) {
+  summoner_name <- player_names$name[i]
+  tag_line <- player_names$tag[i]
+  
+  # Get PUUID for the player
+  puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+  
+  # Get the last 20 match IDs
+  match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+  
+  # Randomly select one match ID and store it in the list
+  unique_match_ids[[i]] <- sample(match_ids, 1)
+}
+```
+
+```{r}
+player_names$tag[180] <- "XDDDD"
+
+for (i in 161:180) {
+  summoner_name <- player_names$name[i]
+  tag_line <- player_names$tag[i]
+  
+  # Get PUUID for the player
+  puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+  
+  # Get the last 20 match IDs
+  match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+  
+  # Randomly select one match ID and store it in the list
+  unique_match_ids[[i]] <- sample(match_ids, 1)
+}
+```
+
+```{r}
+for (i in 181:200) {
+  summoner_name <- player_names$name[i]
+  tag_line <- player_names$tag[i]
+  
+  # Get PUUID for the player
+  puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+  
+  # Get the last 20 match IDs
+  match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+  
+  # Randomly select one match ID and store it in the list
+  unique_match_ids[[i]] <- sample(match_ids, 1)
+}
+```
+
+```{r}
+for (i in 201:220) {
+  summoner_name <- player_names$name[i]
+  tag_line <- player_names$tag[i]
+  
+  # Get PUUID for the player
+  puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+  
+  # Get the last 20 match IDs
+  match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+  
+  # Randomly select one match ID and store it in the list
+  unique_match_ids[[i]] <- sample(match_ids, 1)
+}
+```
+
+```{r}
+player_names$name[228] <- "Jonathanz"
+
+for (i in 221:240) {
+  summoner_name <- player_names$name[i]
+  tag_line <- player_names$tag[i]
+  
+  # Get PUUID for the player
+  puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+  
+  # Get the last 20 match IDs
+  match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+  
+  # Randomly select one match ID and store it in the list
+  unique_match_ids[[i]] <- sample(match_ids, 1)
+}
+```
+
+```{r}
+for (i in 241:260) {
+  summoner_name <- player_names$name[i]
+  tag_line <- player_names$tag[i]
+  
+  # Get PUUID for the player
+  puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+  
+  # Get the last 20 match IDs
+  match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+  
+  # Randomly select one match ID and store it in the list
+  unique_match_ids[[i]] <- sample(match_ids, 1)
+}
+```
+
+```{r}
+for (i in 261:280) {
+  summoner_name <- player_names$name[i]
+  tag_line <- player_names$tag[i]
+  
+  # Get PUUID for the player
+  puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+  
+  # Get the last 20 match IDs
+  match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+  
+  # Randomly select one match ID and store it in the list
+  unique_match_ids[[i]] <- sample(match_ids, 1)
+}
+```
+
+```{r}
+for (i in 281:295) {
+  summoner_name <- player_names$name[i]
+  tag_line <- player_names$tag[i]
+  
+  # Get PUUID for the player
+  puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+  
+  # Get the last 20 match IDs
+  match_ids <- get_match_history("americas", puuid, 20, my_api_key)
+  
+  # Randomly select one match ID and store it in the list
+  unique_match_ids[[i]] <- sample(match_ids, 1)
+}
+```
+
+```{r}
+unique_match_ids <- unlist(unique_match_ids)
+```
+
+```{r}
+# Step 2: Second loop to retrieve match details for each unique match ID
+player_matches <- list()
+
+for (j in 1:40) {
+  summoner_name <- player_names$name[j]
+  tag_line <- player_names$tag[j]
+  
+  # Get PUUID for the player
+  puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+  
+  match_id <- unique_match_ids[j]
+  
+  # Get match data for the selected match ID
+  match_data <- get_match_details("americas", match_id, puuid, my_api_key)
+
+  # Store the match data
+  player_matches[[j]] <- match_data
+}
+```
+
+```{r}
+for (j in 41:80) {
+  summoner_name <- player_names$name[j]
+  tag_line <- player_names$tag[j]
+  
+  # Get PUUID for the player
+  puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+  
+  match_id <- unique_match_ids[j]
+  
+  # Get match data for the selected match ID
+  match_data <- get_match_details("americas", match_id, puuid, my_api_key)
+
+  # Store the match data
+  player_matches[[j]] <- match_data
+}
+```
+
+```{r}
+for (j in 81:120) {
+  summoner_name <- player_names$name[j]
+  tag_line <- player_names$tag[j]
+  
+  # Get PUUID for the player
+  puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+  
+  match_id <- unique_match_ids[j]
+  
+  # Get match data for the selected match ID
+  match_data <- get_match_details("americas", match_id, puuid, my_api_key)
+
+  # Store the match data
+  player_matches[[j]] <- match_data
+}
+```
+
+```{r}
+for (j in 121:160) {
+  summoner_name <- player_names$name[j]
+  tag_line <- player_names$tag[j]
+  
+  # Get PUUID for the player
+  puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+  
+  match_id <- unique_match_ids[j]
+  
+  # Get match data for the selected match ID
+  match_data <- get_match_details("americas", match_id, puuid, my_api_key)
+
+  # Store the match data
+  player_matches[[j]] <- match_data
+}
+```
+
+```{r}
+for (j in 161:200) {
+  summoner_name <- player_names$name[j]
+  tag_line <- player_names$tag[j]
+  
+  # Get PUUID for the player
+  puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+  
+  match_id <- unique_match_ids[j]
+  
+  # Get match data for the selected match ID
+  match_data <- get_match_details("americas", match_id, puuid, my_api_key)
+
+  # Store the match data
+  player_matches[[j]] <- match_data
+}
+```
+
+```{r}
+for (j in 201:240) {
+  summoner_name <- player_names$name[j]
+  tag_line <- player_names$tag[j]
+  
+  # Get PUUID for the player
+  puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+  
+  match_id <- unique_match_ids[j]
+  
+  # Get match data for the selected match ID
+  match_data <- get_match_details("americas", match_id, puuid, my_api_key)
+
+  # Store the match data
+  player_matches[[j]] <- match_data
+}
+```
+
+```{r}
+for (j in 241:280) {
+  summoner_name <- player_names$name[j]
+  tag_line <- player_names$tag[j]
+  
+  # Get PUUID for the player
+  puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+  
+  match_id <- unique_match_ids[j]
+  
+  # Get match data for the selected match ID
+  match_data <- get_match_details("americas", match_id, puuid, my_api_key)
+
+  # Store the match data
+  player_matches[[j]] <- match_data
+}
+```
+
+```{r}
+for (j in 281:295) {
+  summoner_name <- player_names$name[j]
+  tag_line <- player_names$tag[j]
+  
+  # Get PUUID for the player
+  puuid <- get_puuid("americas", summoner_name, tag_line, my_api_key)
+  
+  match_id <- unique_match_ids[j]
+  
+  # Get match data for the selected match ID
+  match_data <- get_match_details("americas", match_id, puuid, my_api_key)
+
+  # Store the match data
+  player_matches[[j]] <- match_data
+}
+```
+
+```{r}
+# Combine all matches into a single data frame
+match_df2 <- bind_rows(player_matches)
+write.csv(match_df2, "match_df2.csv")
+```
